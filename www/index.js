@@ -1,5 +1,7 @@
 'use strict';
 
+var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
+
 require('babel-polyfill');
 
 var _helmet = require('helmet');
@@ -28,6 +30,14 @@ var _cors = require('cors');
 
 var _cors2 = _interopRequireDefault(_cors);
 
+var _nodeFetch = require('node-fetch');
+
+var _nodeFetch2 = _interopRequireDefault(_nodeFetch);
+
+var _expressGraphql = require('express-graphql');
+
+var _expressGraphql2 = _interopRequireDefault(_expressGraphql);
+
 var _schema = require('./schema');
 
 var _schema2 = _interopRequireDefault(_schema);
@@ -47,17 +57,17 @@ var secrets = JSON.parse(_fs2.default.readFileSync(_path2.default.resolve(__dirn
 
 // app.use(bodyParser.urlencoded({ extended: true }))
 
-;_asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee2() {
+;_asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee3() {
   var mongo, app;
-  return regeneratorRuntime.wrap(function _callee2$(_context2) {
+  return regeneratorRuntime.wrap(function _callee3$(_context3) {
     while (1) {
-      switch (_context2.prev = _context2.next) {
+      switch (_context3.prev = _context3.next) {
         case 0:
-          _context2.next = 2;
+          _context3.next = 2;
           return (0, _mongoConnector2.default)();
 
         case 2:
-          mongo = _context2.sent;
+          mongo = _context3.sent;
           app = (0, _express2.default)();
 
           if (process.env.NODE_ENV === 'production') {
@@ -70,38 +80,66 @@ var secrets = JSON.parse(_fs2.default.readFileSync(_path2.default.resolve(__dirn
 
           app.use((0, _helmet2.default)());
           app.use((0, _cors2.default)());
-          app.use(function () {
+          app.use('/graphql', _bodyParser2.default.json(), function () {
             var _ref2 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee(req, res, next) {
-              var response, json;
+              var response, json, user;
               return regeneratorRuntime.wrap(function _callee$(_context) {
                 while (1) {
                   switch (_context.prev = _context.next) {
                     case 0:
-                      _context.next = 2;
-                      return fetch('https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=' + req.get('Authorization').split(' ')[1]);
+                      req.context = {};
 
-                    case 2:
-                      response = _context.sent;
-
-                      if (!(response.status !== 200)) {
-                        _context.next = 6;
+                      if (!req.get('Authorization')) {
+                        _context.next = 18;
                         break;
                       }
 
-                      res.send(401);
+                      _context.next = 4;
+                      return (0, _nodeFetch2.default)('https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=' + req.get('Authorization').split(' ')[1]);
+
+                    case 4:
+                      response = _context.sent;
+
+                      if (!(response.status !== 200)) {
+                        _context.next = 8;
+                        break;
+                      }
+
+                      res.sendStatus(401);
                       return _context.abrupt('return');
 
-                    case 6:
-                      _context.next = 8;
+                    case 8:
+                      _context.next = 10;
                       return response.json();
 
-                    case 8:
+                    case 10:
                       json = _context.sent;
 
-                      req.user = json.sub;
+                      if (!(json.aud !== secrets.web.client_id || Date.now() > json.exp * 1000)) {
+                        _context.next = 14;
+                        break;
+                      }
+
+                      res.sendStatus(401);
+                      return _context.abrupt('return');
+
+                    case 14:
+                      _context.next = 16;
+                      return mongo.Users.findOne({ id: json.sub });
+
+                    case 16:
+                      user = _context.sent;
+
+                      if (!user) {
+                        req.context.newUser = json.sub;
+                      } else {
+                        req.context.user = user;
+                      }
+
+                    case 18:
                       next();
 
-                    case 11:
+                    case 19:
                     case 'end':
                       return _context.stop();
                   }
@@ -112,19 +150,46 @@ var secrets = JSON.parse(_fs2.default.readFileSync(_path2.default.resolve(__dirn
             return function (_x, _x2, _x3) {
               return _ref2.apply(this, arguments);
             };
+          }(),
+          // graphqlHTTP(async (req, res) => {
+          //   return {
+          //     context: { ...req.context, mongo },
+          //     schema,
+          //     graphiql: true,
+          //   }
+          // })
+          function () {
+            var _ref3 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee2(req, res, next) {
+              return regeneratorRuntime.wrap(function _callee2$(_context2) {
+                while (1) {
+                  switch (_context2.prev = _context2.next) {
+                    case 0:
+                      _context2.next = 2;
+                      return (0, _apolloServerExpress.graphqlExpress)({
+                        context: _extends({}, req.context, { mongo: mongo }),
+                        schema: _schema2.default
+                      })(req, res, next);
+
+                    case 2:
+                    case 'end':
+                      return _context2.stop();
+                  }
+                }
+              }, _callee2, undefined);
+            }));
+
+            return function (_x4, _x5, _x6) {
+              return _ref3.apply(this, arguments);
+            };
           }());
-          app.use('/graphql', _bodyParser2.default.json(), (0, _apolloServerExpress.graphqlExpress)({
-            context: { mongo: mongo },
-            schema: _schema2.default
-          }));
           app.use('/graphiql', (0, _apolloServerExpress.graphiqlExpress)({
             endpointURL: '/graphql'
           }));
 
-        case 10:
+        case 9:
         case 'end':
-          return _context2.stop();
+          return _context3.stop();
       }
     }
-  }, _callee2, undefined);
+  }, _callee3, undefined);
 }))();

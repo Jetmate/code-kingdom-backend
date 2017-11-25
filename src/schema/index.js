@@ -4,7 +4,8 @@ import resolvers from './resolvers'
 const typeDefs = `
   type User {
     id: ID!
-    name: String!
+    username: String!
+    bio: String
   }
 
   type Course {
@@ -26,13 +27,22 @@ const typeDefs = `
 
   type Mutation {
     createUser(
-      id: ID!
-      name: String!
+      username: String!
+    ): User
+
+    editUser(
+      username: String
+      bio: String
     ): User
 
     createCourse(
       id: ID!
       name: String!
+    ): Course
+
+    editCourse(
+      id: ID!
+      name: String
     ): Course
   }
 `
