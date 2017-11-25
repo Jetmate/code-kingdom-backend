@@ -5,7 +5,7 @@ const nodemon = require('gulp-nodemon')
 const babel = require('gulp-babel')
 
 const SRC = 'src/**/*.js'
-const DEST = 'www'
+const DEST = 'build'
 const FINAL = 'index.js'
 
 gulp.task('babel', function () {
