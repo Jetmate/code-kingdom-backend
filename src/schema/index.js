@@ -3,16 +3,37 @@ import resolvers from './resolvers'
 
 const typeDefs = `
   type User {
-    _id: ID!
+    id: ID!
+    name: String!
+  }
+
+  type Course {
+    id: ID!
     name: String!
   }
 
   type Query {
     allUsers: [User!]!
+    User(
+      id: ID!
+    ): User
+
+    allCourses: [Course!]!
+    Course(
+      id: ID!
+    ): Course
   }
 
   type Mutation {
-    createUser(name: String!): User
+    createUser(
+      id: ID!
+      name: String!
+    ): User
+
+    createCourse(
+      id: ID!
+      name: String!
+    ): Course
   }
 `
 

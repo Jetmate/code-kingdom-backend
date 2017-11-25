@@ -21,7 +21,10 @@ exports.default = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(functi
 
         case 2:
           db = _context.sent;
-          return _context.abrupt('return', { Users: db.collection('users') });
+          return _context.abrupt('return', {
+            Users: db.collection('users'),
+            Courses: db.collection('courses')
+          });
 
         case 4:
         case 'end':
