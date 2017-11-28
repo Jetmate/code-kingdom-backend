@@ -9,10 +9,8 @@ import fs from 'fs'
 import cors from 'cors'
 import fetch from 'node-fetch'
 
-import graphqlHTTP from 'express-graphql'
-
 import schema from './schema'
-import connectMongo from './mongo-connector'
+import mongo from './schema/mongo'
 
 const secrets = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../client_secret.json')))
 
@@ -22,8 +20,6 @@ const secrets = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../client_se
 // app.use(bodyParser.urlencoded({ extended: true }))
 
 ;(async () => {
-  const mongo = await connectMongo()
-
   const app = express()
   if (process.env.NODE_ENV === 'production') {
     app.listen(3002, '127.0.0.1')
@@ -35,7 +31,7 @@ const secrets = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../client_se
 
   app.use(helmet())
   app.use(cors())
-  app.use('/graphql',
+  app.post('/graphql',
     bodyParser.json(),
     async (req, res, next) => {
       req.context = {}
@@ -53,22 +49,21 @@ const secrets = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../client_se
           res.sendStatus(401)
           return
         }
-        const user = await mongo.Users.findOne({ id: json.sub })
+        const user = await mongo.Users.findOne({ _id: json.sub })
         if (!user) {
           req.context.newUser = json.sub
         } else {
           req.context.user = user
         }
       }
+
+      /// /////////////////// DEBUG ONLY
+      req.context.user = await mongo.Users.findOne({ _id: '105342380724738854881' })
+      req.context.newUser = true
+      /// //////////////////
+
       next()
     },
-    // graphqlHTTP(async (req, res) => {
-    //   return {
-    //     context: { ...req.context, mongo },
-    //     schema,
-    //     graphiql: true,
-    //   }
-    // })
     async (req, res, next) => {
       await graphqlExpress({
         context: { ...req.context, mongo },
