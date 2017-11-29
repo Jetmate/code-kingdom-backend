@@ -1,3 +1,18 @@
+import mongoose from 'mongoose'
+
+const NAME_SIZES = {
+  user: {
+    username: 20,
+    bio: 280,
+  },
+  course: {
+    title: 120,
+  },
+  lesson: {
+    title: 120,
+  }
+}
+
 export default {
   Query: {
     user: async (root, data, { mongo: { Users } }) => {
@@ -15,6 +30,13 @@ export default {
     },
     titleCourse: async (root, data, { mongo: { Courses } }) => {
       return Courses.findOne({ title: data.title })
+    },
+
+    lesson: async (root, data, { mongo: { Courses } }) => {
+      return (await Courses.findOne({ _id: data.course, 'lessons._id': data.id }, { 'lessons.$': 1 })).lessons[0]
+    },
+    titleLesson: async (root, data, { mongo: { Courses } }) => {
+      return (await Courses.findOne({ _id: data.course, 'lessons.title': data.title }, { 'lessons.$': 1 })).lessons[0]
     },
   },
 
@@ -41,22 +63,22 @@ export default {
         courses: [],
       })
 
-      checkName(user.username, 20, false)
+      checkName(user.username, NAME_SIZES.user.username, false)
       if (await Users.count({ username: user.username })) throw new Error('username taken')
 
       return user.save()
     },
 
     editUser: async (root, data, { mongo: { Users }, user }) => {
-      if (!user) throw new Error('not authorized')
+      checkAuth(user)
 
       if (data.input.username !== undefined) {
-        checkName(data.input.username, 20, false)
+        checkName(data.input.username, NAME_SIZES.user.username, false)
         if (await Users.count({ username: data.input.username })) throw new Error('username taken')
       }
 
       if (data.input.bio !== undefined) {
-        checkName(data.input.io, 280, false)
+        checkName(data.input.io, NAME_SIZES.user.bio, false)
       }
 
       return Users.updateOne({ _id: user._id }, { $set: data.input })
@@ -68,7 +90,7 @@ export default {
     },
 
     createCourse: async (root, data, { mongo: { Courses, Users }, user }) => {
-      if (!user) throw new Error('not authorized')
+      checkAuth(user)
 
       const course = new Courses({
         ...data.input,
@@ -76,7 +98,7 @@ export default {
         lessons: [],
       })
 
-      checkName(course.title, 120)
+      checkName(course.title, NAME_SIZES.course.title)
       if (await Courses.count({ title: course.title })) throw new Error('name taken')
 
       await Users.updateOne({ _id: user._id }, { $push: { courses: { course: course._id, type: 'CREATED' } } })
@@ -85,49 +107,56 @@ export default {
     },
 
     editCourse: async (root, data, { mongo: { Courses }, user }) => {
-      if (!user) throw new Error('not authorized')
+      await checkCourseAuth(user, data.id, Courses)
 
       if (data.input.title !== undefined) {
-        checkName(data.input.title, 120)
-        if (await Courses.findOne({ title: data.input.title })) throw new Error('name taken')
+        checkName(data.input.title, NAME_SIZES.course.title)
+        if (await Courses.count({ title: data.input.title })) throw new Error('name taken')
       }
-
 
       return Courses.updateOne({ _id: data.id }, { $set: data.input })
     },
 
     deleteCourse: async (root, data, { mongo: { Courses }, user }) => {
-      if (!user) throw new Error('not authorized')
+      await checkCourseAuth(user, data.id, Courses)
 
       return (await Courses.deleteOne({ _id: data.id })).result
     },
 
     createLesson: async (root, data, { mongo: { Courses }, user }) => {
-      if (!user) throw new Error('not authorized')
+      await checkCourseAuth(user, data.course, Courses)
 
-      data.input = {
+      const lesson = {
         ...data.input,
-        slides: []
+        slides: [],
+        _id: new mongoose.Types.ObjectId(),
       }
 
-      checkName(data.input.title, 120)
-      if (await Courses.findOne({ _id: data.course, lessons: { title: data.input.title } })) throw new Error('name taken')
+      checkName(lesson.title, NAME_SIZES.lesson.title)
+      if (await Courses.count({ _id: data.course, lessons: { title: lesson.title } })) throw new Error('name taken')
 
-      data.input = (await Courses.updateOne({ _id: data.course }, { $push: { lessons: data.input } })).ops[0]
-
-      return data.input
+      await Courses.updateOne({ _id: data.course }, { $push: { lessons: lesson } })
+      return lesson
     },
 
     editLesson: async (root, data, { mongo: { Courses }, user }) => {
-      if (!user) throw new Error('not authorized')
+      const course = await checkCourseAuth(user, data.course, Courses)
 
-      checkName(data.input.title, 120)
-      if (await Courses.findOne({ _id: data.course, lessons: { title: data.input.title } })) throw new Error('name taken')
+      if (data.input.title !== undefined) {
+        checkName(data.input.title, NAME_SIZES.lesson.title)
+        if (await Courses.count({ _id: data.course, lessons: { title: data.input.title } })) throw new Error('name taken')
+      }
 
-      data = (await Courses.updateOne({ _id: data.course, 'lessons._id': data.id }, { $set: { 'lessons.$.': data } })).ops[0]
+      set(course.lessons.filter(lesson => lesson._id === data.id), data.input)
 
-      return data
+      return { n: 1, ok: 1 }
     },
+
+    deleteLesson: async (root, data, { mongo: { Courses }, user }) => {
+      await checkCourseAuth(user, data.course, Courses)
+      return Courses.updateOne({ _id: data.course }, { $pull: { 'lessons': { _id: data.id } } })
+    },
+
 
     createQuizSlide: async (root, data, { mongo: { Courses }, user }) => {
       if (!user) throw new Error('not authorized')
@@ -158,4 +187,21 @@ function checkWhitespace (name) {
 
 function checkLength (name, length) {
   if (name.length > length) throw new Error(`name can't exceed ${length} characters`)
+}
+
+function checkAuth (user) {
+  if (!user) throw new Error('not authorized')
+}
+
+async function checkCourseAuth (user, courseId, Courses) {
+  checkAuth(user)
+  const course = await Courses.findOne({ _id: courseId })
+  if (user._id !== course.creator) throw new Error('not authorized')
+  return course
+}
+
+function set (object, properties) {
+  for (let property in properties) {
+    object[property] = properties[property]
+  }
 }

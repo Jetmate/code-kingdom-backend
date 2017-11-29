@@ -93,6 +93,7 @@ export default [`
   extend type Query {
     lessons(course: ID!): [Lesson]!
     lesson(id: ID!, course: ID!): Lesson!
+    titleLesson(course: ID!, title: String!): Lesson!
   }
 
 
