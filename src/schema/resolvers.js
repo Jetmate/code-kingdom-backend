@@ -38,17 +38,10 @@ export default {
     titleLesson: async (root, data, { mongo: { Courses } }) => {
       return (await Courses.findOne({ _id: data.course, 'lessons.title': data.title }, { 'lessons.$': 1 })).lessons[0]
     },
-  },
 
-  CourseInfo: {
-    course: async (root, data, { mongo: { Courses } }) => {
-      return Courses.findOne({ _id: root.course })
-    },
-  },
-
-  Course: {
-    creator: async (root, data, { mongo: { Users } }) => {
-      return Users.findOne({ _id: root.creator })
+    slide: async (root, data, { mongo: { Courses } }) => {
+      return (await Courses.findOne({ _id: data.course, 'lessons._id': data.lesson }, { 'lessons.$': 1 }))
+        .lessons[0].slides.filter(slide => slide._id === data.id)
     },
   },
 
@@ -146,9 +139,14 @@ export default {
         checkName(data.input.title, NAME_SIZES.lesson.title)
         if (await Courses.count({ _id: data.course, lessons: { title: data.input.title } })) throw new Error('name taken')
       }
+      console.log(data)
 
-      set(course.lessons.filter(lesson => lesson._id === data.id), data.input)
+      // eslint-disable-next-line standard/computed-property-even-spacing
+      set(course.lessons[
+        course.lessons.reduce((acc, val, i) => val._id == data.id && i, null)
+      ], data.input)
 
+      course.save()
       return { n: 1, ok: 1 }
     },
 
@@ -157,22 +155,49 @@ export default {
       return Courses.updateOne({ _id: data.course }, { $pull: { 'lessons': { _id: data.id } } })
     },
 
+    createQuizSlide: createSlide,
+    createInstructionSlide: createSlide,
+    createProjectSlide: createSlide,
+    editQuizSlide: editSlide,
+    editInstructionSlide: editSlide,
+    editProjectSlide: editSlide,
 
-    createQuizSlide: async (root, data, { mongo: { Courses }, user }) => {
-      if (!user) throw new Error('not authorized')
+    deleteSlide: async (root, data, { mongo: { Courses }, user }) => {
+      const course = await checkCourseAuth(user, data.course, Courses)
 
-    },
-
-    createInstructionSlide: async (root, data, { mongo: { Courses }, user }) => {
-      if (!user) throw new Error('not authorized')
-
-    },
-
-    createProjectSlide: async (root, data, { mongo: { Courses }, user }) => {
-      if (!user) throw new Error('not authorized')
-
+      const lessonI = course.lessons.reduce((acc, val, i) => val._id == data.lesson && i, null)
+      // eslint-disable-next-line standard/computed-property-even-spacing
+      course.lessons[lessonI].slides.splice(
+        course.lessons[lessonI].slides.reduce((acc, val, i) => val._id == data.id && i, null), 1
+      )
+      course.save()
+      return { n: 1, ok: 1 }
     },
   },
+
+  CourseInfo: {
+    course: async (root, data, { mongo: { Courses } }) => {
+      return Courses.findOne({ _id: root.course })
+    },
+  },
+
+  Course: {
+    creator: async (root, data, { mongo: { Users } }) => {
+      return Users.findOne({ _id: root.creator })
+    },
+  },
+
+  Slide: {
+    __resolveType: async (root) => {
+      if (root.questions !== undefined) {
+        return 'QuizSlide'
+      } else if (root.hint !== undefined) {
+        return 'InstructionSlide'
+      } else {
+        return 'ProjectSlide'
+      }
+    }
+  }
 }
 
 function checkName (name, length, whitespace = true) {
@@ -204,4 +229,35 @@ function set (object, properties) {
   for (let property in properties) {
     object[property] = properties[property]
   }
+}
+
+async function createSlide (root, data, { mongo: { Courses }, user }) {
+  const course = await checkCourseAuth(user, data.course, Courses)
+
+  const slide = {
+    ...data.input,
+    _id: new mongoose.Types.ObjectId(),
+  }
+
+  const lessonI = course.lessons.reduce((acc, val, i) => val._id == data.lesson && i, null)
+
+  course.lessons[lessonI].slides.push(slide)
+  course.save()
+  return slide
+}
+
+async function editSlide (root, data, { mongo: { Courses }, user }) {
+  const course = await checkCourseAuth(user, data.course, Courses)
+
+  const lessonI = course.lessons.reduce((acc, val, i) => val._id == data.lesson && i, null)
+  console.log(editSlide)
+
+  set( // eslint-disable-next-line standard/computed-property-even-spacing
+    course.lessons[lessonI].slides[
+      course.lessons[lessonI].slides.reduce((acc, val, i) => val._id == data.id && i, null)
+    ],
+    data.input
+  )
+  course.save()
+  return { n: 1, ok: 1 }
 }

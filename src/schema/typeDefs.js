@@ -91,7 +91,6 @@ export default [`
 
 
   extend type Query {
-    lessons(course: ID!): [Lesson]!
     lesson(id: ID!, course: ID!): Lesson!
     titleLesson(course: ID!, title: String!): Lesson!
   }
@@ -119,7 +118,6 @@ export default [`
 
 
   extend type Query {
-    slides(lesson: ID!, course: ID!): [Slide]!
     slide(id: ID!, lesson: ID!, course: ID!): Slide!
   }
 
@@ -129,7 +127,7 @@ export default [`
   }
 
   `, `
-  type Quiz implements Slide {
+  type QuizSlide implements Slide {
     _id: ID!
     title: String!
     questions: [Question!]!
@@ -167,12 +165,12 @@ export default [`
   }
 
   extend type Mutation {
-    createQuizSlide(id: ID!, lesson: ID!, course: ID!, input: createQuizSlideInput!): Slide!
+    createQuizSlide(lesson: ID!, course: ID!, input: createQuizSlideInput!): Slide!
     editQuizSlide(id: ID!, lesson: ID!, course: ID!, input: editQuizSlideInput!): Result!
   }
 
   `, `
-  type Instruction implements Slide {
+  type InstructionSlide implements Slide {
     _id: ID!
     title: String!
     description: String!
@@ -203,7 +201,7 @@ export default [`
   }
 
   `, `
-  type Project implements Slide {
+  type ProjectSlide implements Slide {
     _id: ID!
     title: String!
     description: String!
