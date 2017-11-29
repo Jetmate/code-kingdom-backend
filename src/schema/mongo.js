@@ -9,13 +9,12 @@ const User = new mongoose.Schema({
   username: String,
   bio: String,
   courses: [{
-    course: Object,
-    type: String
+    course: ObjectId,
+    type: String,
   }],
-})
+}, { typeKey: false })
 
 const Course = new mongoose.Schema({
-  _id: ObjectId,
   title: String,
   language: String,
   creator: String,
@@ -40,7 +39,7 @@ const Course = new mongoose.Schema({
       correctOutput: [String],
     }],
   }],
-})
+}, { typeKey: false })
 
 export default {
   Users: mongoose.model('User', User),

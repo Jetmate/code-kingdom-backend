@@ -1,7 +1,7 @@
 export default [`
-  type DeleteResult {
-    acknowledged: Boolean!
-    deletedCount: Int!
+  type Result {
+    ok: Int!
+    n: Int!
   }
 
   `, `
@@ -42,7 +42,8 @@ export default [`
 
   type Mutation {
     createUser(input: createUserInput!): User!
-    editUser(input: editUserInput!): User!
+    editUser(input: editUserInput!): Result!
+    deleteUser: Result!
   }
 
   `, `
@@ -77,8 +78,8 @@ export default [`
 
   extend type Mutation {
     createCourse(input: createCourseInput!): Course!
-    editCourse(id: ID!, input: editCourseInput!): Course!
-    deleteCourse(id: ID!): DeleteResult!
+    editCourse(id: ID!, input: editCourseInput!): Result!
+    deleteCourse(id: ID!): Result!
   }
 
   `, `
@@ -105,8 +106,8 @@ export default [`
 
   extend type Mutation {
     createLesson(course: ID!, input: createLessonInput!): Lesson!
-    editLesson(id: ID!, course: ID!, input: editLessonInput!): Lesson!
-    deleteLesson(id: ID!, course: ID!): DeleteResult!
+    editLesson(id: ID!, course: ID!, input: editLessonInput!): Result!
+    deleteLesson(id: ID!, course: ID!): Result!
   }
 
   `, `
@@ -123,7 +124,7 @@ export default [`
 
 
   extend type Mutation {
-    deleteSlide(id: ID!, lesson: ID!, course: ID!): DeleteResult!
+    deleteSlide(id: ID!, lesson: ID!, course: ID!): Result!
   }
 
   `, `
@@ -166,7 +167,7 @@ export default [`
 
   extend type Mutation {
     createQuizSlide(id: ID!, lesson: ID!, course: ID!, input: createQuizSlideInput!): Slide!
-    editQuizSlide(id: ID!, lesson: ID!, course: ID!, input: editQuizSlideInput!): Slide!
+    editQuizSlide(id: ID!, lesson: ID!, course: ID!, input: editQuizSlideInput!): Result!
   }
 
   `, `
@@ -197,7 +198,7 @@ export default [`
 
   extend type Mutation {
     createInstructionSlide(lesson: ID!, course: ID!, input: createInstructionSlideInput!): Slide!
-    editInstructionSlide(id: ID!, lesson: ID!, course: ID!, input: editInstructionSlideInput!): Slide!
+    editInstructionSlide(id: ID!, lesson: ID!, course: ID!, input: editInstructionSlideInput!): Result!
   }
 
   `, `
@@ -222,6 +223,6 @@ export default [`
 
   extend type Mutation {
     createProjectSlide(lesson: ID!, course: ID!, input: createProjectSlideInput!): Slide!
-    editProjectSlide(id: ID!, lesson: ID!, course: ID!, input: editProjectSlideInput!): Slide!
+    editProjectSlide(id: ID!, lesson: ID!, course: ID!, input: editProjectSlideInput!): Result!
   }
 `]

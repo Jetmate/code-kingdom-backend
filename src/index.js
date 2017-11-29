@@ -3,21 +3,17 @@ import 'babel-polyfill'
 import helmet from 'helmet'
 import express from 'express'
 import bodyParser from 'body-parser'
-import path from 'path'
 import { graphqlExpress, graphiqlExpress } from 'apollo-server-express'
-import fs from 'fs'
 import cors from 'cors'
 import fetch from 'node-fetch'
+
+// import graphqlHTTP from 'express-graphql'
 
 import schema from './schema'
 import mongo from './schema/mongo'
 
-const secrets = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../client_secret.json')))
-
-// app.set('view engine', 'html')
-// app.engine('html', handlebars.__express)
-
-// app.use(bodyParser.urlencoded({ extended: true }))
+import secrets from '../client_secret.json'
+import testingSecret from '../testing_secret.json'
 
 ;(async () => {
   const app = express()
@@ -37,30 +33,40 @@ const secrets = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../client_se
       req.context = {}
 
       if (req.get('Authorization')) {
-        const response = await fetch(
-          'https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=' + req.get('Authorization').split(' ')[1]
-        )
-        if (response.status !== 200) {
-          res.sendStatus(401)
-          return
+        const token = req.get('Authorization').split(' ')[1]
+        let id
+
+        if (token === testingSecret.token) {
+          id = testingSecret.id
+          req.context.debug = true
+        } else {
+          const response = await fetch(
+            'https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=' + token
+          )
+          if (response.status !== 200) {
+            res.sendStatus(401)
+            return
+          }
+          const json = await response.json()
+          if (json.aud !== secrets.web.client_id || Date.now() > json.exp * 1000) {
+            res.sendStatus(401)
+            return
+          }
+          id = json.sub
         }
-        const json = await response.json()
-        if (json.aud !== secrets.web.client_id || Date.now() > json.exp * 1000) {
-          res.sendStatus(401)
-          return
-        }
-        const user = await mongo.Users.findOne({ _id: json.sub })
+
+        const user = await mongo.Users.findOne({ _id: id })
         if (!user) {
-          req.context.newUser = json.sub
+          req.context.newUser = id
         } else {
           req.context.user = user
         }
+      } else {
+        /// /////////////////// DEBUG ONLY
+        req.context.user = await mongo.Users.findOne({ _id: '105342380724738854881' })
+        req.context.newUser = '105342380724738854881'
+        /// //////////////////
       }
-
-      /// /////////////////// DEBUG ONLY
-      req.context.user = await mongo.Users.findOne({ _id: '105342380724738854881' })
-      req.context.newUser = true
-      /// //////////////////
 
       next()
     },
@@ -70,6 +76,13 @@ const secrets = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../client_se
         schema,
       })(req, res, next)
     }
+    // graphqlHTTP((req, res, next) => {
+    //   return {
+    //     schema,
+    //     context: { ...req.context, mongo },
+    //     graphiql: true
+    //   }
+    // })
   )
   app.use('/graphiql', graphiqlExpress({
     endpointURL: '/graphql'

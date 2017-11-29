@@ -1,19 +1,10 @@
 export default {
   Query: {
-    users: async (root, data, { mongo: { Users } }) => {
-      return Users.find({})
-    },
     user: async (root, data, { mongo: { Users } }) => {
       return Users.findOne({ _id: data.id })
     },
-    userCourses: async (root, data, { mongo: { Courses, Users } }) => {
-      const user = await Users.findOne({ _id: data.id })
-      if (!user) throw new Error('no such user')
-
-      return Promise.all(user.courses
-        .filter(async courseStatus => data.status.includes(courseStatus.type))
-        .map(async courseStatus => Courses.findOne({ _id: courseStatus.course }))
-      )
+    users: async (root, data, { mongo: { Users } }) => {
+      return Users.find({})
     },
 
     courses: async (root, data, { mongo: { Courses } }) => {
@@ -29,8 +20,13 @@ export default {
 
   CourseInfo: {
     course: async (root, data, { mongo: { Courses } }) => {
-      console.log(root)
       return Courses.findOne({ _id: root.course })
+    },
+  },
+
+  Course: {
+    creator: async (root, data, { mongo: { Users } }) => {
+      return Users.findOne({ _id: root.creator })
     },
   },
 
@@ -39,69 +35,75 @@ export default {
       if (!newUser) throw new Error('already a user')
 
       const user = new Users({
-        _id: newUser,
         ...data.input,
+        _id: newUser,
         bio: '',
         courses: [],
-       })
+      })
 
-      data.input = (await Users.insertOne(data.input)).ops[0]
+      checkName(user.username, 20, false)
+      if (await Users.count({ username: user.username })) throw new Error('username taken')
 
-      return data.input
+      return user.save()
     },
 
     editUser: async (root, data, { mongo: { Users }, user }) => {
-      if (!user) throw new Error('not authenticated')
+      if (!user) throw new Error('not authorized')
 
       if (data.input.username !== undefined) {
         checkName(data.input.username, 20, false)
-        if (await Users.findOne({ username: data.input.username })) throw new Error('username taken')
+        if (await Users.count({ username: data.input.username })) throw new Error('username taken')
       }
 
       if (data.input.bio !== undefined) {
-        if (data.input.bio.length > 280) throw new Error('bio can\'t exceed 280 characters')
+        checkName(data.input.io, 280, false)
       }
-      return (await Users.findOneAndUpdate({ id: user.id }, { $set: data.input })).value
+
+      return Users.updateOne({ _id: user._id }, { $set: data.input })
+    },
+
+    deleteUser: async (root, data, { mongo: { Users }, debug, user }) => {
+      if (!debug) throw new Error('not authorized')
+      return (await Users.deleteOne({ _id: user.id })).result
     },
 
     createCourse: async (root, data, { mongo: { Courses, Users }, user }) => {
-      if (!user) throw new Error('not authenticated')
+      if (!user) throw new Error('not authorized')
 
-      data.input = {
+      const course = new Courses({
         ...data.input,
-        lessons: [],
         creator: user._id,
-      }
+        lessons: [],
+      })
 
-      checkName(data.input.title, 120)
-      if (await Courses.findOne({ title: data.input.title })) throw new Error('name taken')
+      checkName(course.title, 120)
+      if (await Courses.count({ title: course.title })) throw new Error('name taken')
 
-      data.input = (await Courses.insertOne(data.input)).ops[0]
+      await Users.updateOne({ _id: user._id }, { $push: { courses: { course: course._id, type: 'CREATED' } } })
 
-      Users.updateOne({ _id: user._id }, { $push: { courses: { course: data._id, type: 'CREATED' } } })
-
-      return data.input
+      return course.save()
     },
 
     editCourse: async (root, data, { mongo: { Courses }, user }) => {
-      if (!user) throw new Error('not authenticated')
+      if (!user) throw new Error('not authorized')
 
       if (data.input.title !== undefined) {
         checkName(data.input.title, 120)
         if (await Courses.findOne({ title: data.input.title })) throw new Error('name taken')
       }
 
-      return (await Courses.findOneAndUpdate({ _id: data.id }, { $set: data.input })).value
+
+      return Courses.updateOne({ _id: data.id }, { $set: data.input })
     },
 
     deleteCourse: async (root, data, { mongo: { Courses }, user }) => {
-      if (!user) throw new Error('not authenticated')
+      if (!user) throw new Error('not authorized')
 
-      return courses.deleteOne({ _id: data.id })
+      return (await Courses.deleteOne({ _id: data.id })).result
     },
 
     createLesson: async (root, data, { mongo: { Courses }, user }) => {
-      if (!user) throw new Error('not authenticated')
+      if (!user) throw new Error('not authorized')
 
       data.input = {
         ...data.input,
@@ -117,7 +119,7 @@ export default {
     },
 
     editLesson: async (root, data, { mongo: { Courses }, user }) => {
-      if (!user) throw new Error('not authenticated')
+      if (!user) throw new Error('not authorized')
 
       checkName(data.input.title, 120)
       if (await Courses.findOne({ _id: data.course, lessons: { title: data.input.title } })) throw new Error('name taken')
@@ -128,17 +130,17 @@ export default {
     },
 
     createQuizSlide: async (root, data, { mongo: { Courses }, user }) => {
-      if (!user) throw new Error('not authenticated')
+      if (!user) throw new Error('not authorized')
 
     },
 
     createInstructionSlide: async (root, data, { mongo: { Courses }, user }) => {
-      if (!user) throw new Error('not authenticated')
+      if (!user) throw new Error('not authorized')
 
     },
 
     createProjectSlide: async (root, data, { mongo: { Courses }, user }) => {
-      if (!user) throw new Error('not authenticated')
+      if (!user) throw new Error('not authorized')
 
     },
   },
@@ -146,6 +148,14 @@ export default {
 
 function checkName (name, length, whitespace = true) {
   if (!name) throw new Error('please enter a name')
-  if (name.length > 120) throw new Error(`name can't exceed ${length} characters`)
-  if (!whitespace && /\s/g.test(name)) throw new Error('name can\'t have whitespace')
+  checkLength(name, length)
+  if (!whitespace) checkWhitespace(name)
+}
+
+function checkWhitespace (name) {
+  if (/\s/g.test(name)) throw new Error('name can\'t have whitespace')
+}
+
+function checkLength (name, length) {
+  if (name.length > length) throw new Error(`name can't exceed ${length} characters`)
 }
