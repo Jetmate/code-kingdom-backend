@@ -40,8 +40,8 @@ export default {
     },
 
     slide: async (root, data, { mongo: { Courses } }) => {
-      return (await Courses.findOne({ _id: data.course, 'lessons._id': data.lesson }, { 'lessons.$': 1 }))
-        .lessons[0].slides.filter(slide => slide._id === data.id)
+      return (await Courses.findOne({ _id: data.course, 'lessons._id': data.lesson }))
+        .lessons[0].slides.filter(slide => slide._id == data.id)[0]
     },
   },
 
@@ -139,14 +139,13 @@ export default {
         checkName(data.input.title, NAME_SIZES.lesson.title)
         if (await Courses.count({ _id: data.course, lessons: { title: data.input.title } })) throw new Error('name taken')
       }
-      console.log(data)
 
       // eslint-disable-next-line standard/computed-property-even-spacing
       set(course.lessons[
         course.lessons.reduce((acc, val, i) => val._id == data.id && i, null)
       ], data.input)
 
-      course.save()
+      await await course.save()
       return { n: 1, ok: 1 }
     },
 
@@ -170,7 +169,7 @@ export default {
       course.lessons[lessonI].slides.splice(
         course.lessons[lessonI].slides.reduce((acc, val, i) => val._id == data.id && i, null), 1
       )
-      course.save()
+      await course.save()
       return { n: 1, ok: 1 }
     },
   },
@@ -242,7 +241,7 @@ async function createSlide (root, data, { mongo: { Courses }, user }) {
   const lessonI = course.lessons.reduce((acc, val, i) => val._id == data.lesson && i, null)
 
   course.lessons[lessonI].slides.push(slide)
-  course.save()
+  await course.save()
   return slide
 }
 
@@ -250,7 +249,6 @@ async function editSlide (root, data, { mongo: { Courses }, user }) {
   const course = await checkCourseAuth(user, data.course, Courses)
 
   const lessonI = course.lessons.reduce((acc, val, i) => val._id == data.lesson && i, null)
-  console.log(editSlide)
 
   set( // eslint-disable-next-line standard/computed-property-even-spacing
     course.lessons[lessonI].slides[
@@ -258,6 +256,6 @@ async function editSlide (root, data, { mongo: { Courses }, user }) {
     ],
     data.input
   )
-  course.save()
+  await course.save()
   return { n: 1, ok: 1 }
 }

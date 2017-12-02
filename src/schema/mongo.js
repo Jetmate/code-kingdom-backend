@@ -39,7 +39,7 @@ const Course = new mongoose.Schema({
       correctOutput: [String],
     }],
   }],
-}, { typeKey: false })
+}, { typeKey: false, usePushEach: true })
 
 export default {
   Users: mongoose.model('User', User),

@@ -18,16 +18,16 @@ import testingSecret from '../testing_secret.json'
 ;(async () => {
   const app = express()
   if (process.env.NODE_ENV === 'production') {
-    app.listen(3002, '127.0.0.1')
-    console.log('RUNNING ON http://127.0.0.1:3002/')
+    app.listen(3002, '0.0.0.0')
+    console.log('RUNNING ON http://0.0.0.0:3002/')
   } else {
     app.listen(3000, '127.0.0.1')
-    console.log('RUNNING ON http://0.0.0.0:3000/')
+    console.log('RUNNING ON http://127.0.0.1:3000/')
   }
 
   app.use(helmet())
   app.use(cors())
-  app.post('/graphql',
+  app.use('/graphql',
     bodyParser.json(),
     async (req, res, next) => {
       req.context = {}
