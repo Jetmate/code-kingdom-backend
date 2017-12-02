@@ -26,7 +26,7 @@ export default [`
 
   type Query {
     users: [User]!
-    user(id: ID!): User!
+    user(id: ID!): User
     userCourses(id: ID!, status: [CourseStatus]!): [Course]!
   }
 
@@ -62,8 +62,8 @@ export default [`
 
   extend type Query {
     courses: [Course]!
-    course(id: ID!): Course!
-    titleCourse(title: String!): Course!
+    course(id: ID!): Course
+    titleCourse(title: String!): Course
   }
 
 
@@ -91,8 +91,8 @@ export default [`
 
 
   extend type Query {
-    lesson(id: ID!, course: ID!): Lesson!
-    titleLesson(course: ID!, title: String!): Lesson!
+    lesson(id: ID!, course: ID!): Lesson
+    titleLesson(course: ID!, title: String!): Lesson
   }
 
 
@@ -118,7 +118,7 @@ export default [`
 
 
   extend type Query {
-    slide(id: ID!, lesson: ID!, course: ID!): Slide!
+    slide(id: ID!, lesson: ID!, course: ID!): Slide
   }
 
 
