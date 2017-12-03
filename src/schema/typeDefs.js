@@ -27,7 +27,6 @@ export default [`
   type Query {
     users: [User]!
     user(id: ID!): User
-    userCourses(id: ID!, status: [CourseStatus]!): [Course]!
   }
 
 

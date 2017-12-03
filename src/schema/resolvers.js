@@ -65,13 +65,13 @@ export default {
     editUser: async (root, data, { mongo: { Users }, user }) => {
       checkAuth(user)
 
-      if (data.input.username !== undefined) {
+      if (data.input.username) {
         checkName(data.input.username, NAME_SIZES.user.username, false)
         if (await Users.count({ username: data.input.username })) throw new Error('username taken')
       }
 
-      if (data.input.bio !== undefined) {
-        checkName(data.input.io, NAME_SIZES.user.bio, false)
+      if (data.input.bio) {
+        checkName(data.input.bio, NAME_SIZES.user.bio, false)
       }
 
       return Users.updateOne({ _id: user._id }, { $set: data.input })
@@ -102,7 +102,7 @@ export default {
     editCourse: async (root, data, { mongo: { Courses }, user }) => {
       await checkCourseAuth(user, data.id, Courses)
 
-      if (data.input.title !== undefined) {
+      if (data.input.title) {
         checkName(data.input.title, NAME_SIZES.course.title)
         if (await Courses.count({ title: data.input.title })) throw new Error('name taken')
       }
@@ -135,7 +135,7 @@ export default {
     editLesson: async (root, data, { mongo: { Courses }, user }) => {
       const course = await checkCourseAuth(user, data.course, Courses)
 
-      if (data.input.title !== undefined) {
+      if (data.input.title) {
         checkName(data.input.title, NAME_SIZES.lesson.title)
         if (await Courses.count({ _id: data.course, lessons: { title: data.input.title } })) throw new Error('name taken')
       }
@@ -200,7 +200,7 @@ export default {
 }
 
 function checkName (name, length, whitespace = true) {
-  if (!name) throw new Error('please enter a name')
+  if (!name) throw new Error('please actually enter something')
   checkLength(name, length)
   if (!whitespace) checkWhitespace(name)
 }
